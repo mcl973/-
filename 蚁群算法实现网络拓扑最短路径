@@ -2,6 +2,7 @@ import random
 import copy
 import sys
 import mini.settings as sets
+import mini.method_all as ma
 import numpy as np
 # 参数
 (ALPHA, BETA, RHO, Q) = (1.0, 2.0, 0.5, 100.0)
@@ -23,11 +24,13 @@ class Ant(object):
         self.ID = ID  # ID
         self.src = src
         self.dst = dst
+        self.pathss = []
         self.__clean_data()  # 随机初始化出生点(计算最短路径要固定源和目的)
 
     # 初始数据
     def __clean_data(self):
-
+        self.pathss=[]
+        self.pathss.append(self.src)
         self.path = []  # 当前蚂蚁的路径
         self.total_distance = 0.0  # 当前路径的总距离
         self.move_count = 0  # 移动次数
@@ -69,25 +72,32 @@ class Ant(object):
             while next_city == -1:
                 j = (temp + 1) * (-1)
                 temp += 1
-                self.current_city = self.path[j]
+                try:
+                    self.current_city = self.path[j]
+                except:
+                    break
                 for i in range(city_num):
                     if self.open_table_city[i] and distance_graph[self.current_city][i] != 0:
                         next_city = i
-
+                        if self.dst not in self.pathss:
+                            k = self.path.index(self.current_city)+1
+                            self.pathss = self.path[0:k]
         # 返回下一个城市序号
         return next_city
 
     # 计算路径总距离
     def __cal_total_distance(self):
-
         temp_distance = 0.0
         for i in range(1, city_num):
-            start, end = self.path[i], self.path[i - 1]
-            temp_distance += distance_graph[start][end]
+            try:
+                start, end = self.path[i], self.path[i - 1]
+                temp_distance += distance_graph[start][end]
+            except:
+                break
 
     # 移动操作
     def __move(self, next_city):
-
+        self.pathss.append(next_city)
         self.path.append(next_city)
         self.open_table_city[next_city] = False
         self.total_distance += distance_graph[self.current_city][next_city]
@@ -109,7 +119,7 @@ class Ant(object):
         self.__cal_total_distance()
 
 class getpath():
-    def __init__(self,src,dst, n=city_num,itorators = 100):
+    def __init__(self,src,dst,maps, n=city_num,itorators = 100 ):
 
         # 城市数目初始化为city_num
         self.n = n
@@ -118,13 +128,14 @@ class getpath():
         self.new(src,dst)
         # 计算城市之间的距离
         map = np.zeros((10,10))
-        map = sets.setting().initmap
+        map = maps
+        self.kkmap = map
         for i in range(city_num):
             for j in range(city_num):
                 # temp_distance = pow((distance_x[i] - distance_x[j]), 2) + pow((distance_y[i] - distance_y[j]), 2)
                 # temp_distance = pow(temp_distance, 0.5)
                 if map[i][j] != _:
-                    distance_graph[i][j] = map[i][j]
+                    distance_graph[i][j] = maps[i][j]
                 else:
                     distance_graph[i][j] = 0
         # print(distance_graph)
@@ -145,7 +156,7 @@ class getpath():
             # 遍历每一只蚂蚁
             for ant in self.ants:
                 # 搜索一条路径
-                ant.search_path()
+                k = ant.search_path()
                 # 与当前最优蚂蚁比较
                 if ant.total_distance < self.best_ant.total_distance:
                     # 更新最优解
@@ -153,7 +164,7 @@ class getpath():
             # 更新信息素
             self.__update_pheromone_gragh()
             i+=1
-        return self.best_ant
+        return self.best_ant.pathss
     # 更新信息素
     def __update_pheromone_gragh(self):
 
@@ -170,31 +181,38 @@ class getpath():
         for i in range(city_num):
             for j in range(city_num):
                 pheromone_graph[i][j] = pheromone_graph[i][j] *(1-RHO) + temp_pheromone[i][j]
-
-if __name__ == '__main__':
-    src,dst = 0,6
-    #返回的是一个最小树，包含了最短路径
-    list = getpath(src,dst).search_path().path
-    list1 = getpath(dst, src).search_path().path
-    print(list)
-    print(list1)
-
+def getresult(src,dst,map):
+    list = getpath(src, dst, map).search_path()
+    list1 = getpath(dst, src, map).search_path()
     path = []
     path1 = []
-    for i in list:
-        if i == dst:
-            path.append(i+1)
-            break
-        path.append(i+1)
-
-    for i in list1:
-        if i == src:
-            path1.append(i+1)
-            break
-        path1.append(i+1)
-    #输出最后的结果
-    if len(path)<=len(path1):
-        print(path)
+    if dst in list:
+        for i in list:
+            if i == dst:
+                path.append(i)
+                break
+            path.append(i)
+    if src in list1:
+        for i in list1:
+            if i == src:
+                path1.append(i)
+                break
+            path1.append(i)
+    if len(path) <= len(path1) and len(path)>0 and len(path1)>0:
+        results = path
     else:
         path1 = path1[::-1]
-        print(path1)
+        results = path1
+    return results
+
+if __name__ == '__main__':
+    path = getresult(0,9,sets.setting().initmap)
+    # print(path)
+    map = sets.setting().initmap
+    allpath = []
+    while len(path)>2:
+        allpath.append(path)
+        temp = path
+        map = ma.method_all(nodenum=10).dellink(path,map)
+        path = getresult(0, 9, map)
+    print(allpath)
