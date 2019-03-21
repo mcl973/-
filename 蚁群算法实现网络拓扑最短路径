@@ -1,7 +1,7 @@
 import random
 import copy
 import sys
-import mini.settings as sets
+import mini.settings as sets  #在mini.method_all中有相同的可以实现功能的方法。
 import mini.method_all as ma
 import numpy as np
 # 参数
@@ -64,6 +64,7 @@ class Ant(object):
                                                                                                 current=self.current_city,
                                                                                                 target=i))
                     sys.exit(1)
+        #选取最优的下一跳
         if sum(select_citys_prob)>0:
             prob = max(select_citys_prob)
             next_city = select_citys_prob.index(prob)
@@ -76,12 +77,24 @@ class Ant(object):
                     self.current_city = self.path[j]
                 except:
                     break
+                ss = 0
                 for i in range(city_num):
                     if self.open_table_city[i] and distance_graph[self.current_city][i] != 0:
-                        next_city = i
-                        if self.dst not in self.pathss:
-                            k = self.path.index(self.current_city)+1
-                            self.pathss = self.path[0:k]
+                        try:
+                            #选取最优的那个下一跳
+                            select_citys_prob[i] = pow(pheromone_graph[self.current_city][i], ALPHA) * pow(
+                                (1.0 / distance_graph[self.current_city][i]), BETA)
+                            if select_citys_prob[i]>ss:
+                                ss = select_citys_prob[i]
+                                if self.dst not in self.pathss:
+                                    k = self.path.index(self.current_city) + 1
+                                    self.pathss = self.path[0:k]
+                                next_city = i
+                        except ZeroDivisionError as e:
+                            print('Ant ID: {ID}, current city: {current}, target city: {target}'.format(ID=self.ID,
+                                                                                                        current=self.current_city,
+                                                                                                        target=i))
+                            sys.exit(1)
         # 返回下一个城市序号
         return next_city
 
