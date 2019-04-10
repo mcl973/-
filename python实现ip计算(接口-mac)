@@ -37,7 +37,7 @@ class GetIpRoute():
         ipstr = ''
         if ipnetwork ==32:#ip is the hostip
            iplist = ip.split('.')[:-(4-ipnetwork)][:-1]
-           iplist.append(ip.split('.')[-1].split('/')[-2])
+           iplist.append(ip.split('.')[-1].split('/')[-2])   
            print(iplist)
            for i in range(4):
                if i== 3:
