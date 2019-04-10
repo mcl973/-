@@ -1,0 +1,137 @@
+# GetIpRoute 通过ip获得一些想要的信息。
+
+#handip 得到ip的前缀。
+
+#ge_port 的到ip兑现的端口号（在ip route中记录了ip网络号和其对应的端口，说白了就是目的地址和出接口）。
+
+#getlocalip 得到本地的ip。
+
+#islocalip 查看ip是不是本地的ip。
+
+import os
+class GetIpRoute():
+    def __init__(self,ip='default'):
+        self.ip = self.handleip(ip)
+        self.port_ip_mac = self.getlocalip()
+
+    #只能计算有类的ip n*8 (n=0,1,2,3,4)
+    def handleip(self,ip="default"):
+        if ip == "default":#is the 0.0.0.0
+            return ip
+
+        #handle the ip network
+        if '/' not in ip:#if ip not has the network,and give ip network
+            iphead = ip.split('.')[0]
+            if int(iphead)>=192:
+                ipnetwork=24
+            elif int(iphead)>127 and int(iphead)<192:
+                ipnetwork = 16
+            elif int(iphead) < 171:
+                ipnetwork = 8
+            iplist = ip.split('.')[:-(4-ipnetwork)]
+        else:#ip has the network
+            ipnetwork = int(ip.split('.')[-1].split('/')[-1])
+            iplist = ip.split('.')[:-(4-ipnetwork)]
+
+        #handle ip
+        ipstr = ''
+        if ipnetwork ==32:#ip is the hostip
+           iplist = ip.split('.')[:-(4-ipnetwork)][:-1]
+           iplist.append(ip.split('.')[-1].split('/')[-2])
+           print(iplist)
+           for i in range(4):
+               if i== 3:
+                   ipstr += iplist[i]
+                   break
+               ipstr += iplist[i]+'.'
+        else:#other ip
+            ipprex = int(ipnetwork/8)
+            for i in range(ipprex):
+                ipstr += iplist[i]+'.'
+            temp = 4-ipprex
+            for i in range(4-ipprex):
+                if i==(temp-1):
+                    ipstr += '0'
+                    break
+                ipstr += '0.'
+        return ipstr
+
+    #得到ip对应的端口号
+    def get_port(self,ip='default'):
+        lists = self.getiproute()
+        for i in lists:
+            if ip in i[0]:
+                index = i.index('dev')
+                return i[index+1]
+        return -1
+
+    #返回本地路由表的列表信息
+    def getiproute(self):
+        os.system("ip route > /home/mao/Documents/iproute.text")
+        with open('/home/mao/Documents/iproute.text', 'r') as file:
+            lists = []
+            str = file.readline()
+            while str != "":
+                list = []
+                list = str.split()
+                lists.append(list)
+                str = file.readline()
+        return lists
+
+    # 得到本地ip信息，返回字典，字典形式为{port:{ip:x.x.x.x,mask:x.x.x.x,mac:x:x:x:x:x:x}}
+    def getlocalip(self):
+        #current only has 4 data in a entry
+        length = 4
+        os.system('ifconfig > /home/mao/Documents/ip_port_info.text')
+        #make the String in a list that i can handle it
+        with open('/home/mao/Documents/ip_port_info.text', 'r') as file:
+            str = file.readline()
+            lists = []
+            while str != "":
+                list = []
+                list = str.split()
+                lists.append(list)
+                str = file.readline()
+        #存储数据-->{port:{ip:x.x.x.x,mask:x.x.x.x,mac:x:x:x:x:x:x}}
+        port_ip_mac = {}
+        #temp list to store data
+        list = []
+        for i in lists:
+            #cut the string that i need
+            if 'Link' in i:
+                #port
+                list.append(i[0])
+                #mac
+                list.append(i[-1])
+            if 'inet' in i:
+                #ip
+                list.append(i[1].split(':')[-1])
+                #mask
+                list.append(i[-1].split(':')[-1])
+                # list.append('#')
+        # print(list)
+        #calculate the number of entry
+        k = len(list) / length
+        for i in range(int(k)):
+            #configure entry in a list
+            key_value = i * length
+            port_ip_mac.setdefault(list[key_value], {})
+            port_ip_mac[list[key_value]]['mac'] = list[key_value + 1]
+            port_ip_mac[list[key_value]]['ip'] = list[key_value + 2]
+            port_ip_mac[list[key_value]]['mask'] = list[key_value + 3]
+
+        # print(port_ip_mac)
+        return port_ip_mac
+    #查看是不是本地的ip，如果是返回其mac，不是返回-1
+    def islocalip(self,ip):
+        for i in self.port_ip_mac:
+            if ip == self.port_ip_mac[i]['ip']:
+                return self.port_ip_mac[i]['mac']
+
+        return -1
+
+# if __name__ == '__main__':
+#     k = GetIpRoute(ip='192.168.231.1/24')
+#     mm = k.islocalip("192.168.231.13")
+#     print(k.port)
+#     print(mm)
