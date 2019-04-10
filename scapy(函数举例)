@@ -1,0 +1,14 @@
+from scapy.all import *
+#发送数据
+class SendPackets():
+    def __init__(self):
+        pass
+
+    def send(self,data,port):
+        #ip
+        proto = 0x0800
+        #family=socket.PF_PACKET, type=socket.SOCK_RAW send ip packet
+        sockets = socket.socket(family=socket.PF_PACKET, type=socket.SOCK_RAW, proto=socket.htons(proto))
+        #band the port that sen apckets
+        sockets.bind((port, socket.htons(proto)))
+        sockets.send(data)
