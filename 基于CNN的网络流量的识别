@@ -1,0 +1,93 @@
+from keras.models import Sequential
+from keras.layers import Dense,Dropout
+from keras.layers import Conv1D,GlobalAveragePooling1D,MaxPooling1D
+# 以下为数据加载部分
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import Normalizer
+from data import Featuretest
+class Keras_Cnn():
+    def __init__(self):
+        self.config = Featuretest.config()
+
+        # 训练集
+        self.train_data = pd.read_csv('E:\桌面\文档\IP_AND_MACHIINE\dadat\\test_train\\small_train4.csv', header=None)
+        # 测试集
+        self.test_data = pd.read_csv('E:\桌面\文档\IP_AND_MACHIINE\dadat\\test_train\\small_test4.csv', header=None)
+        #start cnn model
+        self.start()
+
+    def handledata(self):
+        #训练集训练部分
+        train=self.train_data.iloc[:,0:self.config.data]
+        #训练集标签
+        train_lb=self.train_data.iloc[:,self.config.label]
+
+        #测试集测试部分
+        test=self.test_data.iloc[:,0:self.config.data]
+        #测试集标签
+        test_lb=self.test_data.iloc[:,self.config.label]
+
+        return train,test,train_lb,test_lb
+
+    def guiyihua(self,train,test,train_lb,test_lb):
+        #归一化训练集和测试集
+        scaler=Normalizer().fit(train)
+
+        #训练集的归一化操作
+        x_train=scaler.transform(train)
+
+        #测试集的归一化操作
+        scaler=Normalizer().fit(test)
+        x_test=scaler.transform(test)
+
+        x=np.expand_dims(x_train,axis=2)
+        y=np.expand_dims(x_test,axis=2)
+
+        #标签数组化
+        tr_lb=np.reshape(train_lb,self.config.trainnum)
+        te_lb=np.reshape(test_lb,self.config.testnum)
+        return tr_lb,te_lb,x,y
+
+    def cnn_model(self,tr_lb,te_lb,x,y):
+        #构建模型
+        cnn_1D=Sequential()  #堆叠其，可以向其中放入过滤器，卷积层，相当于一个容器，可以添加各种层
+        #添加一个卷积层，包含64个卷积核，大小为1*1，激励函数为relu，输入为一个40*1的文本
+        cnn_1D.add(Conv1D(64,1,activation='relu',input_shape=(self.config.data,1)))  #添加卷积层，输入是一个8*1的图像（文本 ）
+        #添加一个卷积层，包含64个卷积核，大小为1*1，激励函数为relu
+        cnn_1D.add(Conv1D(64,1,activation='relu'))
+        #添加一个池化层，池大小为3
+        cnn_1D.add(MaxPooling1D(3))  #最大池化层
+        cnn_1D.add(Conv1D(64,1,activation='relu'))
+        cnn_1D.add(Conv1D(64,1,activation='relu'))
+        #全局平均池化
+        cnn_1D.add(GlobalAveragePooling1D())
+        #遗忘层，以往速度为0.5
+        cnn_1D.add(Dropout(self.config.Dropoutrate))   #随机丢失，用于降低过拟合
+        cnn_1D.add(Dense(6,activation='sigmoid'))   #全连接层,提供6个出口
+        #添加优化器rmsprop，和损失函数sparse_categorical_crossentropy，metric为accuracy
+        cnn_1D.compile(
+            loss='sparse_categorical_crossentropy',
+            optimizer='rmsprop',
+            metrics=(['accuracy'])
+        )
+        #模型设计完毕
+        #将数据喂给模型，开始训练模型，epochs表示训练多少次
+        #batch_size，每次梯度更新的样本数 = 80
+        #epochs 训练多少次
+        cnn_1D.fit(x,tr_lb,batch_size=self.config.batch_size,epochs=self.config.epochs)
+        #评估模型
+        score=cnn_1D.evaluate(y,te_lb,batch_size=self.config.batch_size)
+        print(score)
+        # model_json = cnn_1D.to_json()
+        # open('F:\Python-work\\network_traffic_claffic_on_cnn\K99_cpu_data_test\\Newprograme\mcl.json', 'w').write(model_json)
+        # cnn_1D.save_weights("F:\Python-work\\network_traffic_claffic_on_cnn\K99_cpu_data_test\\Newprograme\weight.h5")
+
+    def start(self):
+        train,test,train_lb,test_lb=self.handledata()
+        tr_lb, te_lb, x, y =self.guiyihua(train,test,train_lb,test_lb)
+        self.cnn_model(tr_lb, te_lb, x, y)
+
+if __name__ == '__main__':
+    Keras_Cnn()
+
