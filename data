@@ -7,3 +7,4 @@ class config():
         self.batch_size = 80
         self.epochs = 3
         self.Dropoutrate = 0.25
+        self.classfic = 2
