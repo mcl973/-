@@ -1,0 +1,11 @@
+class config():
+    def __init__(self):
+        self.data=15
+        self.label=16
+        self.trainnum=200000
+        self.testnum =80000
+        self.batch_size = 80
+        self.epochs = 4
+        self.Dropoutrate = 0.5
+        self.classic = 2
+        self.test_num = 1
