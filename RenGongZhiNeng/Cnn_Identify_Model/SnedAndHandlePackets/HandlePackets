@@ -1,0 +1,15 @@
+from os import remove
+from Cnn_Identify_Model.Model_Start.Start import StartIdentify as si
+
+class createPackets():
+    def __init__(self,model):
+        self.flags = 0
+        self.result = self.HandlePackets(model)
+
+
+    def HandlePackets(self,model):
+        result = si(model).result
+        return result
+
+# if __name__ == "__main__":
+#     createPackets()
