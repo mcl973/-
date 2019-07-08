@@ -1,0 +1,83 @@
+from scapy.all import *
+from math import pow
+
+class PacketingPacket():
+    def __init__(self):
+        self.getSingleData()
+        # self.IntoIP(2886729729)
+
+
+    def getSingleData(self):
+        packetlist = []
+		#这个文件目前在‘需要的文件夹’当中
+        with open("/home/mao/Mao/Documents/PacketingPackets.txt",'r') as file:
+            k = file.readline()
+            while k!='':
+                #do something
+                k = file.readline().split(',')
+                print(k)
+                packet = rdpcap("/home/mao/Mao/Documents/PacketingPacket.pcap")[0]
+                print(repr(packet))
+                try:
+                    pack= self.Packeting(k,packet)
+                    packetlist.append(pack)
+                except:
+                    break
+
+                # self.Packeting(k,packet)
+			#这个文件目前在‘需要的文件夹’当中
+            wrpcap('/home/mao/Mao/Documents/PacketingPacketest.pcap',packetlist)
+
+    '''
+        k {
+             0   1     2   3     4     5     6-9     10-15       16
+            sip sport dip dport proto time length*4 tcpflags*6 label
+            tcpflags{
+                FIN Flag ,SYN Flag , RST Flag , PSH Flag , ACK Flag , URG Flag 
+            }
+        }
+        tcp{
+        <TCP  sport=https dport=47268 seq=1671449309 ack=3941245926 dataofs=5 
+        reserved=0 flags=A window=64240 chksum=0xa19a urgptr=0 |
+        }
+    '''
+
+    def Packeting(self,TeZheng,packet):
+        srcip = self.IntoIP(int(TeZheng[0]))
+        dstip = self.IntoIP(int(TeZheng[2]))
+        packet['IP'].src = srcip
+        packet["IP"].dst = dstip
+        packet["TCP"].sport = int(TeZheng[1])
+        packet["TCP"].dport = int(TeZheng[3])
+        packet['TCP'].flags = self.flagtrans(TeZheng[10:16])
+        return packet
+
+    #make list of flag to int
+    #u a p r s f in packets   f s r p a u in list
+    '''
+        1 1 1 1 1 1
+        u a p r s f
+    '''
+    def flagtrans(self,flaglist):
+        print(flaglist)
+        flags = 0
+        for i in range(len(flaglist)):
+            flags+=pow(i,2)*int(flaglist[i])
+
+        return flags
+
+
+
+    def IntoIP(self,intip):
+        aip = int(intip/(255*255*255))
+        intip = intip%(255*255*255*aip)
+        bip = int(intip/(255*255))
+        intip = intip%(255*255*bip)
+        cip = int(intip/(255))
+        intip = intip%(255*cip)
+        dip = intip
+        return str(aip)+'.'+str(bip)+'.'+str(cip)+'.'+str(dip)
+
+if __name__ == '__main__':
+    PacketingPacket()
+
