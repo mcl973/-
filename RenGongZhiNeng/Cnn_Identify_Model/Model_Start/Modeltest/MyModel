@@ -1,0 +1,76 @@
+from Cnn_Identify_Model.Model_Start import Config
+from Cnn_Identify_Model.Model_Start.DataPrehandler import DataHandler
+from keras.models import Sequential
+from keras.layers import Dense,Dropout,MaxPooling1D
+from keras.layers import Conv1D,GlobalAveragePooling1D
+from keras.callbacks import ReduceLROnPlateau
+from sklearn.metrics import classification_report
+from numpy import argmax
+class ModelTest():
+    def __init__(self):
+        self.resluttest={}
+        self.config = Config.config()
+        self.mt = DataHandler.handlerData()
+        self.test_label = self.mt.test_lb
+        self.train_label = self.mt.train_lb
+        self.train = self.mt.trainx
+        self.test = self.mt.testy
+        self.model = Sequential()
+        self.Cnn_Model()
+
+    def getPreModelParameter(self):
+        pass
+
+    def max(self,lists1):
+        list = []
+        for i in lists1:
+            k = argmax(i)
+            list.append(k)
+        return list
+
+    def Cnn_Model(self):
+        self.model.add(Conv1D(64, 3, strides=2, activation='relu', input_shape=(self.config.data, 1)))
+        self.model.add(MaxPooling1D(pool_size=3, strides=1))
+        self.model.add(Conv1D(128, 3, activation='relu'))
+        self.model.add(MaxPooling1D(pool_size=3, strides=1))
+        self.model.add(GlobalAveragePooling1D())
+        self.model.add(Dense(100))
+        self.model.add(Dropout(self.config.Dropoutrate))
+        self.model.add(Dense(2, activation='sigmoid'))
+
+        # self.model.add(Conv1D(64,3,strides=1,activation='relu',input_shape=(self.config.data,1)))
+        # self.model.add(Conv1D(64,1,strides=1,activation='relu'))
+        # self.model.add(Conv1D(64,2,strides=1,activation='relu'))
+        # self.model.add(Conv1D(64,2,strides=1,activation='relu'))
+        # self.model.add(GlobalAveragePooling1D())
+        # self.model.add(Dropout(self.config.Dropoutrate))
+        # self.model.add(Dense(2,activation='sigmoid'))
+        self.model.compile(
+            loss='sparse_categorical_crossentropy',
+            optimizer='rmsprop',
+            metrics=(['accuracy'])
+        )
+        # 修改学习率
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', patience=10, mode='auto')
+        # history = LossHistory()
+        # reduce_lr = LearningRateScheduler(self.scheduler)
+        self.model.fit(self.train, self.train_label, batch_size=self.config.batch_size, epochs=self.config.epochs, callbacks=[reduce_lr])
+        # 评估模型
+        score = self.model.evaluate(self.test, self.test_label, batch_size=self.config.batch_size)
+        print(score)
+
+        pre_lb = self.model.predict(self.test)
+
+        pre_lb = self.max(pre_lb)
+        print(classification_report(self.test_label, pre_lb))
+
+        # model_json = self.model.to_json()
+        # open('/home/mao/Mao/Documents/Network_Mode_Json2.json',
+        #      'w').write(model_json)
+        # self.model.save_weights(
+        #     "/home/mao/Mao/Documents/Network_Mode_Weight2.h5")
+
+
+if __name__ == '__main__':
+    ModelTest()
+
