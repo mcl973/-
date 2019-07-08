@@ -1,0 +1,291 @@
+from ryu.lib.packet import packet,ipv4,tcp,udp,ethernet
+
+
+from ryu.base import app_manager
+from ryu.controller import ofp_event
+from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
+from ryu.controller.handler import set_ev_cls
+from ryu.ofproto import ofproto_v1_3
+from ryu.topology import event
+from ryu.topology.api import get_all_host,get_all_switch,get_all_link,get_host
+from Cnn_Identify_Model.Model_Start.Start import StartIdentify,LoadModel
+from Cnn_Identify_Model.SnedAndHandlePackets.HandlePackets import createPackets as cp
+
+
+
+class StartNetwork(app_manager.RyuApp):
+    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+    def __init__(self,*args,**kwargs):
+        super(StartNetwork, self).__init__(*args,**kwargs)
+        self.TeZheng = []
+        self.TeZhengRecord = {}
+        self.once = 0
+        self.model = LoadModel()
+        self.allswitch = []
+        self.allhost = {}
+        self.borderswitches = []
+        self.mac_to_port={}
+        # startGUI()
+
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def switch_features_handler(self, ev):
+        datapath = ev.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        match = parser.OFPMatch()
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+        self.add_flow(datapath, 0, match, actions)
+
+
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        if buffer_id:
+            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
+                                    priority=priority, match=match,
+                                    instructions=inst)
+        else:
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    match=match, instructions=inst)
+        datapath.send_msg(mod)
+
+
+    @set_ev_cls(event.EventSwitchEnter,[MAIN_DISPATCHER,CONFIG_DISPATCHER])
+    def HandlerSwitChchange(self,ev):
+        self.allswitch = get_all_switch(self)
+
+
+    @set_ev_cls(event.EventHostAdd,[MAIN_DISPATCHER,CONFIG_DISPATCHER])
+    def HandlerHostChange(self,ev):
+        self.allhost = get_all_host(self)
+        for host in self.allhost:
+            try:
+                print(host.ipv4[0])
+                #get the border switch by ip address
+                if '10.' in host.ipv4[0]:
+                    if host.port.dpid not in self.borderswitches:
+                        self.borderswitches.append(host.port.dpid)
+            except:
+                pass
+
+    @set_ev_cls(ofp_event.EventOFPPacketIn,MAIN_DISPATCHER)
+    def PacketInHandler(self,ev):
+        msg = ev.msg
+        dp = msg.datapath
+        parser = dp.ofproto_parser
+        ofp = dp.ofproto
+        packets = packet.Packet(msg.data)
+        inport = msg.match['in_port']
+        # print(dp.id)
+        # print(self.borderswitches)
+        if dp.id == 2:
+            ips = packets.get_protocol(ipv4.ipv4)
+            if ips:
+                self.TeZheng.clear()
+                tcps = packets.get_protocol(tcp.tcp)
+                udps = packets.get_protocol(udp.udp)
+                if tcps:
+                    list,flagist = self.HandlerPackets(ips,tcps=tcps)
+                    self.SetTeZheng(list,flagist,len(packets))
+                    tezheng = self.listostr(self.TeZheng)
+                    self.ResultWritetocsvfile(tezheng)
+                    result = cp(model=self.model).result
+                    print(result)
+                    if int(result) == 0:
+                        self.ResultWritetofile(tezheng, result)
+                        self.floodpackets(parser,ofp,inport,msg,dp)
+                    else:
+                        self.ResultWritetofile(tezheng,result)
+                        pass
+
+                elif udps:
+                    list,flagist = self.HandlerPackets(ips, udps=udps)
+                    self.SetTeZheng(list, flagist, len(packets))
+                    tezheng = self.listostr(self.TeZheng)
+                    # if tezheng not in self.TeZhengRecord:
+                    # print(self.TeZheng)
+                    self.ResultWritetocsvfile(tezheng)
+                    result = cp(model=self.model)
+                    # self.TeZhengRecord[tezheng] = result
+                    # else:
+                    #     result = self.TeZhengRecord[tezheng]
+                    # OFPMBT_DROP
+                    if int(result) == 0:
+                        self.ResultWritetofile(tezheng, result)
+                        self.floodpackets(parser,ofp,inport,msg,dp)
+                    else:
+                        self.ResultWritetofile(tezheng, result)
+                        pass
+                else:
+                    self.floodpackets(parser,ofp,inport,msg,dp)
+
+            else:
+                self.floodpackets(parser, ofp, inport, msg, dp)
+
+        else:
+
+            eth = packets.get_protocol(ethernet.ethernet)
+            srcmac = eth.src
+            dstmac = eth.dst
+            self.mac_to_port.setdefault(dp.id,{})
+            self.mac_to_port[dp.id][srcmac] = inport
+            if dstmac in self.mac_to_port[dp.id]:
+                outport = self.mac_to_port[dp.id][dstmac]
+            else:
+                outport = ofp.OFPP_FLOOD
+
+            actions = [parser.OFPActionOutput(outport)]
+
+            if outport != ofp.OFPP_FLOOD:
+                matchs = parser.OFPMatch(eth_dst=dstmac,in_port=inport)
+                self.add_flow(datapath=dp,priority=1,match=matchs,actions=actions)
+            data = None
+            if msg.buffer_id == ofp.OFP_NO_BUFFER:
+                data = msg.data
+
+            out = parser.OFPPacketOut(datapath=dp, buffer_id=msg.buffer_id,
+                                      in_port=inport, actions=actions, data=data)
+            dp.send_msg(out)
+
+
+    def floodpackets(self,parser,ofp,inport,msg,dp):
+        actions = [parser.OFPActionOutput(ofp.OFPP_FLOOD)]
+        data = None
+        if msg.buffer_id == ofp.OFP_NO_BUFFER:
+            data = msg.data
+
+        out = parser.OFPPacketOut(datapath=dp, buffer_id=msg.buffer_id,
+                                  in_port=inport, actions=actions, data=data)
+        dp.send_msg(out)
+
+    def HandlerPackets(self,ips,tcps=None,udps=None):
+
+        return self.HandlerSinglePackage(ips,tcps,udps)
+
+    # 可以直接使用的数据包
+    '''
+        10000 Ack   16
+        01000 Push  8
+        00100 Rest  4
+        00010 Syn   2
+        00001 Fin   1
+    '''
+    def HandlerSinglePackage(self, ips,tcps=None,udps=None):
+        # print("................")
+        flaglist = {}
+        list = []
+        list.append(self.IP_to_Integer(self.IP_to_array(ips.src)))
+        list.append(self.IP_to_Integer(self.IP_to_array(ips.dst)))
+        list.append(ips.proto)
+        if tcps:
+            list.append(tcps.src_port)
+            list.append(tcps.dst_port)
+            flaglist = self.HandlerTcpFlags(tcps.bits)
+        if udps:
+            list.append(udps.src_port)
+            list.append(udps.dst_port)
+            flaglist = self.HandlerTcpFlags()
+
+        return list, flaglist
+
+    def IP_to_array(self, IP):
+        iplist = IP.split(".")
+        for i in range(len(iplist)):
+            iplist[i] = int(iplist[i])
+        return iplist
+
+    def IP_to_Integer(self,iplist):
+        ip = 0
+        ip+=iplist[0]*256*256*256
+        ip+=iplist[1]*256*256
+        ip+=iplist[2]*256
+        ip+=iplist[3]
+        return ip
+
+
+    def HandlerTcpFlags(self, flags=None):
+        flagslist = {}
+        flagslist['A'] = 0
+        flagslist['P'] = 0
+        flagslist['R'] = 0
+        flagslist['S'] = 0
+        flagslist['F'] = 0
+        flagslist['U'] = 0
+        '''
+        A,P,R,S,F,U
+        '''
+        if flags != None:
+            lists = self.strtobin(flags)
+            # print(lists)
+            flagslist['F'] = lists[0]
+            flagslist['S'] = lists[1]
+            flagslist['R'] = lists[2]
+            flagslist['P'] = lists[3]
+            flagslist['A'] = lists[4]
+            flagslist['U'] = lists[5]
+
+        return flagslist
+
+    def strtobin(self,flags):
+        list = [0,0,0,0,0,0]
+        # print(flags)
+        k = int(flags)
+        m = 0
+        while k>0:
+            list[m] = int(k%2)
+            k = int(k/2)
+            m+=1
+        return list
+
+
+    def SetTeZheng(self,list,flaglist,length):
+        self.TeZheng.append(list[0])
+        self.TeZheng.append(list[3])
+        self.TeZheng.append(list[1])
+        self.TeZheng.append(list[4])
+        self.TeZheng.append(list[2])
+        self.TeZheng.append(0)
+        self.TeZheng.append(length)
+        self.TeZheng.append(length)
+        self.TeZheng.append(length)
+        self.TeZheng.append(length)
+        self.TeZheng.append(flaglist["F"])
+        self.TeZheng.append(flaglist["S"])
+        self.TeZheng.append(flaglist["R"])
+        self.TeZheng.append(flaglist["P"])
+        self.TeZheng.append(flaglist["A"])
+        self.TeZheng.append(flaglist["U"])
+
+    def listostr(self,list):
+        k = ''
+        for i in range(len(list)):
+            if i== (len(list)-1):
+                k+=str(list[i])
+            else:
+                k+=str(list[i])+','
+        return k
+
+
+    def ResultWritetofile(self,TeZheng,result):
+        with open("/home/mao/Mao/Documents/mao.txt",'a') as file:
+            file.write(TeZheng)
+            file.write('\n')
+            file.write(str(result))
+            file.write('\n')
+
+    def ResultWritetocsvfile(self,TeZheng):
+        with open('/home/mao/Mao/Documents/test23.csv','w') as file:
+            file.write(TeZheng)
+
+
+
+class Result():
+    def __init__(self):
+        self.reult = []
+
+if __name__ == '__main__':
+    StartNetwork().HandlerTcpFlags(16)
