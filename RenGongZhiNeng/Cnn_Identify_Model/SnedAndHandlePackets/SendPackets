@@ -1,0 +1,49 @@
+from scapy.all import *
+from os import remove
+import time
+
+class Send():
+    def __init__(self,packetslabel=None,TeZhenglabel=None,resultlabel=None,interface=None,path=None,proto=0x0800):
+        '''
+        :param interface: the port you send packets
+        :param path: where is the pcap packets
+        :param proto: packets' proto
+        '''
+        self.packetslabel = packetslabel
+        self.TeZhenglabel = TeZhenglabel
+        self.resultlabel = resultlabel
+        self.int = interface
+        self.path = path
+        self.proto = proto
+        self.flag = 0
+        if self.int !=None:
+            self.send()
+
+    def send(self):
+        sockets = socket.socket(family=socket.PF_PACKET, type=socket.SOCK_RAW, proto=socket.htons(self.proto))
+        sockets.bind((self.int, socket.htons(self.proto)))
+        print("loading packets..")
+        packets = rdpcap(self.path)
+
+        for i in range(len(packets)):
+            print(repr(packets[i]))
+
+    def fenduan(self,packets):
+        packlist = packets.split('<')
+        packet = '数据包是：'+"\r\n"
+        for i in packlist:
+            packet+=i+"\r\n"
+        return packet
+
+
+# test_00004_20190613142800.pcap
+# PacketingPacketest.pcap
+
+
+if __name__ == '__main__':
+    Send(interface='s1-eth2',path='/home/mao/Mao/Documents/PacketingPacketest.pcap')
+
+
+
+
+
