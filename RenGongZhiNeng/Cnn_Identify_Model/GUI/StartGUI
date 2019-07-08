@@ -1,0 +1,208 @@
+from PyQt5.QtWidgets import QMainWindow,QWidget,QLabel
+from PyQt5.QtWidgets import QApplication,QPushButton,QScrollArea
+from sys import exit,argv
+from PyQt5.QtCore import QRect,QMetaObject,Qt
+from PyQt5.QtGui import QPixmap,QMovie
+import os
+from Cnn_Identify_Model.SnedAndHandlePackets.SendPackets import Send
+from threading import Thread
+from time import sleep
+# root_dirs = dirname(realpath(sys.argv[0]))
+class New(QMainWindow):
+    def __init__(self):
+        super(New,self).__init__()
+        self.width = 800
+        self.height = 600
+        self.packetLabel_width = 300
+        self.packetLabel_height = 30
+        self.showpackets_width = self.width
+        self.showpackets_height = self.height/2
+        self.showTeZheng_width = self.width
+        self.showTeZheng_height = self.height/6
+        self.showresult_width = 150
+        self.showresult_height = 30
+        self.startbutton_width = 100
+        self.startbutton_height = 50
+        self.endbutton_width = 100
+        self.endbutton_height = 50
+
+        self.setGUI()
+
+
+    def setGUI(self):
+        # 窗口大小
+        self.resize(self.width,self.height)
+        self.centralwidget = QWidget(self)
+        self.centralwidget.setObjectName("mcl")
+        self.setWindowFlags(Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint)
+        self.picture_container()
+        self.LabelEdit()
+        self.ButtonEdit()
+        # cf().show_key(self,self.centralwidget)
+        self.setCentralWidget(self.centralwidget)
+        QMetaObject.connectSlotsByName(self)
+
+
+    def LabelEdit(self):
+        self.packetsLabel = QLabel(self.centralwidget)
+        self.packetsLabel.setText("数据包识别:")
+        self.PutComponent(self.packetsLabel,0,0,self.packetLabel_width,self.packetLabel_height)
+        self.packetsLabel.show()
+        self.setLabelSheet(self.packetsLabel)
+
+        self.ShowPckets = QLabel(self.scroll_contents1)
+        self.ShowPckets.setText("数据包是：")
+        self.PutComponent(self.ShowPckets,0,
+                          0,self.showpackets_width*10,self.showpackets_height)
+        self.ShowPckets.show()
+        self.setLabelSheet(self.ShowPckets)
+
+        self.ShowTeZheng = QLabel(self.centralwidget)
+        self.ShowTeZheng.setText("特征是：")
+        self.PutComponent(self.ShowTeZheng,int(self.width/2-self.showTeZheng_width/2),
+                          self.packetLabel_height+self.showpackets_height,
+                          self.showTeZheng_width,self.showTeZheng_height)
+        self.setLabelSheet(self.ShowTeZheng)
+        self.ShowTeZheng.show()
+
+        self.Result = QLabel(self.centralwidget)
+        self.Result.setText("结果是：")
+        self.PutComponent(self.Result, int(self.width / 2 - self.showresult_width / 2),
+                          self.packetLabel_height + self.showpackets_height+self.showTeZheng_height,
+                          self.showresult_width, self.showresult_height)
+        self.setLabelSheet(self.Result)
+        self.Result.show()
+
+    def ButtonEdit(self):
+        self.Start = QPushButton(self.centralwidget)
+        self.PutComponent(self.Start,int(self.width/2-self.startbutton_width/2),
+                          self.height - 20-self.startbutton_height,
+                          self.startbutton_width,self.startbutton_height)
+        self.Start.setText("开始")
+        self.Start.show()
+        self.Start.clicked.connect(self.startall)
+
+        # End = QPushButton(self.centralwidget)
+        # self.PutComponent(End, int(self.width/4*3 - self.startbutton_width / 2),
+        #                   self.height - 20 - self.startbutton_height,
+        #                   self.startbutton_width, self.startbutton_height)
+        # End.setText("end")
+        # End.show()
+        # End.clicked.connect(self.Endall)
+
+
+    
+    def picture_container(self):
+        #左边
+        self.scroll_area1 = QScrollArea(self.centralwidget)
+        self.scroll_area1.setGeometry(QRect(0,
+                          self.packetLabel_height,self.showpackets_width,self.showpackets_height))
+        self.scroll_area1.setWidgetResizable(True)
+
+        self.scroll_contents1 = QWidget()
+        #调节位置
+        self.scroll_contents1.setGeometry(QRect(0,
+                          self.packetLabel_height,self.showpackets_width,self.showpackets_height))
+        # self.scroll_contents1.setMinimumSize(self.showpackets_width*10,self.showpackets_height*2)
+        self.scroll_area1.setWidget(self.scroll_contents1)
+
+    def setLabelSheet(self,component):
+        component.setStyleSheet(
+            'QLabel{color:black}'
+            "QLabel{border:4px}"
+            "QLabel{font-size:16px;font-weight:bold;font-family:宋体;}"
+        )
+
+
+    def PutComponent(self,component,x,y,x1,y1):
+        component.setGeometry(QRect(x,y,x1,y1))
+
+
+    def startall(self):
+        Sendpackets().start()
+        StartThread(self.ShowPckets, self.ShowTeZheng, self.Result,self.Start).start()
+
+    def Endall(self):
+        print("nnnn")
+        pass
+
+
+class StartThread(Thread):
+    def __init__(self,ShowPckets,ShowTeZheng,Result,starts):
+        super(StartThread, self).__init__()
+        self.ShowPckets = ShowPckets
+        self.ShowTeZheng = ShowTeZheng
+        self.Result = Result
+        self.starts = starts
+
+    def inttoip(self,intip):
+        aip = int(intip / (255 * 255 * 255))
+        intip = intip % (255 * 255 * 255 * aip)
+        bip = int(intip / (255 * 255))
+        intip = intip % (255 * 255 * bip)
+        cip = int(intip / (255))
+        intip = intip % (255 * cip)
+        dip = intip
+        return str(aip) + '.' + str(bip) + '.' + str(cip) + '.' + str(dip)
+
+
+    def run(self):
+        seflags = 0
+        while seflags == 0:
+            self.starts.close()
+			#这个文件目前在‘需要的文件夹’当中
+            with open('/home/mao/Mao/Documents/mao.txt','r') as file:
+
+                k = file.readline()
+                s = file.readline()
+                while k!='' and s != '':
+                    ip = k.split(',')
+                    srcip = self.inttoip(int(ip[0]))
+                    dstip = self.inttoip(int(ip[2]))
+                    sport = ip[1]
+                    dport = ip[3]
+                    proto = ip[4]
+                    '''
+                            1 1 1 1 1 1
+                            u a p r s f
+                        '''
+                    uflag = ip[15]
+                    aflag = ip[14]
+                    pflag = ip[13]
+                    rflag = ip[12]
+                    sflag = ip[11]
+                    fflag = ip[10]
+                    packets = "数据包的主要部分：\n   srcIP : "+srcip+',srcport : '+sport+',dstIP : '+dstip+',dstport : '+dport+'\n   proto : '+proto+''+"\n   URG "+uflag+'\n   ACK '+aflag+"\n   PUSH "+pflag+"\n   REST "+rflag+"\n   SYN "+sflag+"\n   FIN "+fflag
+
+                    self.ShowPckets.setText(packets)
+                    self.ShowTeZheng.setText("特征:"+k)
+                    if int(s) == 1:
+                        self.Result.setText("类似于攻击包")
+                    else:
+                        self.Result.setText("正常包")
+                    
+                    print(k,s)
+                    k = file.readline()
+                    s = file.readline()
+                    sleep(1)
+
+                seflags = 1
+                self.starts.show()
+
+
+class Sendpackets(Thread):
+    def __init__(self):
+        super(Sendpackets, self).__init__()
+
+    def run(self) -> None:
+		#这个文件目前在‘需要的文件夹’当中
+        Send(interface='s1-eth2',path= '/home/mao/Mao/Documents/PacketingPacketest.pcap')
+
+
+if __name__ == '__main__':
+    app = QApplication(argv)
+    child = New()
+    # 显示
+    child.show()
+    exit(app.exec_())
+
