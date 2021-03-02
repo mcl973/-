@@ -89,3 +89,18 @@ ryu   这个是一个用于sdn的集中式控制器，基于python
 	        # s1-eth1就是需要将数据流打入到那个接口中，如这个接口其实最终的数据回到交换机2中，具体的mininet代码在mininet.py中，所以在StartNetwork.py中的 
 		# def PacketInHandler(self,ev):中的判断语句会是这样if dp.id == 2:
 		Send(interface='s1-eth2',path= '/root/Cnn_Identify_Model/PacketingPacket.pcap')
+3.Exception in thread Thread-1:
+	Traceback (most recent call last):
+	  File "/usr/lib/python3.5/threading.py", line 914, in _bootstrap_inner
+	    self.run()
+	  File "/root/Cnn_Identify_Model/GUI/StartGUI.py", line 199, in run
+	    Send(interface='s1-eth1',path= '/root/Cnn_Identify_Model/PacketingPacket.pcap')
+	  File "/root/Cnn_Identify_Model/SnedAndHandlePackets/SendPackets.py", line 20, in __init__
+	    self.send()
+	  File "/root/Cnn_Identify_Model/SnedAndHandlePackets/SendPackets.py", line 30, in send
+	    sockets.sendall(packets[i])
+	TypeError: a bytes-like object is required, not 'Ether'
+    这个问题已经在代码中修复了。
+ 4.mao.txt   Result.txt  test23.csv  需要自己手动创建
+ 
+ 
