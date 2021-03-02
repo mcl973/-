@@ -27,6 +27,7 @@ class Send():
 
         for i in range(len(packets)):
             print(repr(packets[i]))
+            packets = rdpcap(self.path)
 
     def fenduan(self,packets):
         packlist = packets.split('<')
