@@ -73,5 +73,19 @@ ryu   这个是一个用于sdn的集中式控制器，基于python
         
 		# print(sys.path)
 
+有关问题及解决办法：
+1. ImportError: No module named '/root/Cnn_Identify_Model/RyuNetwork/StartNetwork'
+    找不到model
+    解决办法是：
+     import sys
+     sys.path.append("/root/Cnn_Identify_Model/RyuNetwork/StartNetwork")
+2.有时会出现打入数据包时出现问题，以下几个解决办法希望能解决：
+   1）StartGUI.py中的这段代码：
+     	class Sendpackets(Thread):
+	    def __init__(self):
+		super(Sendpackets, self).__init__()
 
-
+	    def run(self) -> None:
+	        # s1-eth1就是需要将数据流打入到那个接口中，如这个接口其实最终的数据回到交换机2中，具体的mininet代码在mininet.py中，所以在StartNetwork.py中的 
+		# def PacketInHandler(self,ev):中的判断语句会是这样if dp.id == 2:
+		Send(interface='s1-eth2',path= '/root/Cnn_Identify_Model/PacketingPacket.pcap')
